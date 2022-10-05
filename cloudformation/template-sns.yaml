@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
-  Lambda Transfer Cloudwatch Alarms to Google Chat Teams Payvalida and Create SNS Topics Received Alarms to Chat Google cloudmind.-...
+  Lambda Transfer Cloudwatch Alarms to Google Chat Teams Payvalida and Create SNS Topics Received Alarms to Chat Google cloudmind.
 
 Parameters:
 
