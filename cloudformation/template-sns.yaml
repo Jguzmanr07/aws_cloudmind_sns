@@ -1,0 +1,191 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Lambda Transfer Cloudwatch Alarms to Google Chat Teams Payvalida and Create SNS Topics Received Alarms to Chat Google Payválida.
+
+Parameters:
+
+  EnvironmentName:
+    Type: String
+    Description: "Environment in which the execution of the lambda is being carried out"
+    Default: Prueba
+  Bucket:
+    Type: String
+    Description: "Name of the S3 bucket in which the compiled lambdas are stored"
+    Default: 'payvalidatemplates-integraciones-general'
+  MonitoringPayvalida:
+    Type: String
+    Description: Name of key lambda Monitor Payválida.
+  OkImageUrl:
+    Type: String
+    Description: "Check status url OK for alarm in google chat"
+  AlertImageUrl:
+    Type: String
+    Description: "Url of the check status Alert for alarm in google chat"
+  # FirstSubnetId:
+  #   Type: String
+  #   Description: "Primary SubnetId of the vpc to use in these lambdas"
+  # SecondSubnetId:
+  #   Type: String
+  #   Description: "Secondary SubnetId of the vpc to be used in these lambdas"
+  # SecurityGroupId:
+  #   Type: String
+  #   Description: "SecurityGroupIds of the vpc to be used in these lambdas."
+
+  KmsKey:
+    Type: String
+    Description: Default master key that protects my Lambda functions when no other key is defined
+
+Resources:
+
+  FunctionLambdaMonitoring:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Code:
+        S3Bucket: !Ref Bucket
+        S3Key: !Sub >-
+          ${MonitoringPayvalida}.zip
+      # VpcConfig:
+      #   SubnetIds:
+      #     - !Ref FirstSubnetId
+      #     - !Ref SecondSubnetId
+      #   SecurityGroupIds:
+      #     - !Ref SecurityGroupId
+      Handler: !Ref MonitoringPayvalida
+      ReservedConcurrentExecutions: 50
+      KmsKeyArn: !Sub arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/${KmsKey}
+      Runtime: go1.x
+      FunctionName: !Sub >-
+        ${MonitoringPayvalida}-${EnvironmentName}
+      Description: Transfer Cloudwatch Alarms to Google Chat Payválida.
+      Timeout: 30
+      MemorySize: 128
+      Role:
+        Fn::GetAtt:
+          - LambdaRole
+          - Arn
+      Environment:
+        Variables:
+          CHAT_WEBHOOK: "#{WEBHOOK-CHAT-PROD}#"
+          OK_IMAGE_URL:
+            Ref: OkImageUrl
+          ALERT_IMAGE_URL:
+            Ref: AlertImageUrl
+      Tags:
+        - Key: Name
+          Value: !Sub "payvalida-monitoring-integrations-sns-${EnvironmentName}"
+        - Key: Product
+          Value: "monitoreo-payvalida"
+        - Key: Enviroment
+          Value: !Ref EnvironmentName
+    
+  LambdaTriggerPermissionAlarm:
+    Type: AWS::Lambda::Permission
+    Properties: 
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref FunctionLambdaMonitoring
+      Principal: "sns.amazonaws.com"
+      SourceArn: !Ref SNSTopicAlarm
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: "Allow"
+          Principal:
+            Service:
+            - "lambda.amazonaws.com"
+          Action: 
+          - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: LOGS-ACCESS
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - "logs:CreateLogGroup"
+                Resource:
+                  - !Sub >-
+                    arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+                Effect: Allow
+              - Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource:
+                  - !Sub >-
+                    arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${MonitoringPayvalida}-${EnvironmentName}:*
+                Effect: Allow
+        - PolicyName: VPC-ACCESS
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - "ec2:CreateNetworkInterface"
+                  - "ec2:DescribeNetworkInterfaces"
+                  - "ec2:DeleteNetworkInterface"
+                Resource:
+                  - "*"
+                Effect: Allow
+
+################# SNS resources to receive cloudwacth alerts ##############
+
+  SNSTopicAlarm:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      DisplayName: !Sub "Payvalida-Monitoring-Integrations-sns-${EnvironmentName}"
+      TopicName: !Sub "Payvalida-Monitoring-Integrations-sns-${EnvironmentName}"
+      Subscription:
+        - Endpoint: !GetAtt
+            - FunctionLambdaMonitoring
+            - Arn
+          Protocol: lambda
+      Tags:
+        - Key: Name
+          Value: !Sub "payvalida-monitoring-integrations-sns-${EnvironmentName}"
+        - Key: Product
+          Value: "monitoreo-payvalida"
+        - Key: Enviroment
+          Value: !Ref EnvironmentName
+
+  SNSTopicPolicyAlarm:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Id: default_policy
+        Statement:
+          - Sid: default_statement
+            Effect: Allow
+            Principal:
+                AWS: "*"
+            Action:
+              - SNS:GetTopicAttributes
+              - SNS:SetTopicAttributes
+              - SNS:Subscribe
+              - SNS:Publish
+              - SNS:Receive
+            Resource: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:*"
+            Condition:
+              StringEquals:
+                AWS:SourceOwner: !Ref AWS::AccountId
+          - Sid: AWSEvents
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sns:Publish
+            Resource: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:*"
+      Topics:
+          - Ref: SNSTopicAlarm 
+
+Outputs:
+  oLambdaMonitorArn:
+    Value:
+      Fn::GetAtt: FunctionLambdaMonitoring.Arn
+    Description: Function Lambda Monitoring
+    
+
+
+
+
