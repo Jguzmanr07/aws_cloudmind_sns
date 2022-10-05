@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
-  Lambda Transfer Cloudwatch Alarms to Google Chat Teams Payvalida and Create SNS Topics Received Alarms to Chat Google Payválida.
+  Lambda Transfer Cloudwatch Alarms to Google Chat Teams Payvalida and Create SNS Topics Received Alarms to Chat Google cloudmind.
 
 Parameters:
 
@@ -14,7 +14,7 @@ Parameters:
     Default: 'payvalidatemplates-integraciones-general'
   MonitoringPayvalida:
     Type: String
-    Description: Name of key lambda Monitor Payválida.
+    Description: Name of key lambda Monitor cloudmind.
   OkImageUrl:
     Type: String
     Description: "Check status url OK for alarm in google chat"
@@ -59,7 +59,7 @@ Resources:
       Runtime: go1.x
       FunctionName: !Sub >-
         ${MonitoringPayvalida}-${EnvironmentName}
-      Description: Transfer Cloudwatch Alarms to Google Chat Payválida.
+      Description: Transfer Cloudwatch Alarms to Google Chat cloudmind.
       Timeout: 30
       MemorySize: 128
       Role:
