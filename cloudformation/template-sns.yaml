@@ -21,6 +21,9 @@ Parameters:
   AlertImageUrl:
     Type: String
     Description: "Url of the check status Alert for alarm in google chat"
+  WebhookChat:
+    Type: String
+    Description: "Url of the check status Alert for alarm in google chat"
   # FirstSubnetId:
   #   Type: String
   #   Description: "Primary SubnetId of the vpc to use in these lambdas"
@@ -65,7 +68,8 @@ Resources:
           - Arn
       Environment:
         Variables:
-          CHAT_WEBHOOK: "#{WEBHOOK-CHAT-PROD}#"
+          CHAT_WEBHOOK:
+            Ref: WebhookChat
           OK_IMAGE_URL:
             Ref: OkImageUrl
           ALERT_IMAGE_URL:
